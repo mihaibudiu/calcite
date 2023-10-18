@@ -394,6 +394,44 @@ public class SqlOperatorTest {
     }
   }
 
+  @Test void testFPSpecialValues() {
+    SqlOperatorFixture f = fixture();
+    f.checkScalarApprox("CAST('Infinity' AS REAL)",
+        "REAL NOT NULL", "Infinity");
+    f.checkScalarApprox("CAST('Infinity' AS DOUBLE)",
+        "DOUBLE NOT NULL", "Infinity");
+    f.checkScalarApprox("CAST('Infinity' AS FLOAT)",
+        "FLOAT NOT NULL", "Infinity");
+    f.checkScalarApprox("CAST('-Infinity' AS REAL)",
+        "REAL NOT NULL", "-Infinity");
+    f.checkScalarApprox("CAST('-Infinity' AS DOUBLE)",
+        "DOUBLE NOT NULL", "-Infinity");
+    f.checkScalarApprox("CAST('-Infinity' AS FLOAT)",
+        "FLOAT NOT NULL", "-Infinity");
+    // Note: IEEE 754 specifies that there are several types of NaN: quiet and signaling.
+    // There is however only one way to write them.
+    // But when compared for equality they may not match.
+    f.checkScalarApprox("CAST('NaN' AS REAL)",
+        "REAL NOT NULL", "NaN");
+    f.checkScalarApprox("CAST('NaN' AS DOUBLE)",
+        "DOUBLE NOT NULL", "NaN");
+    f.checkScalarApprox("CAST('NaN' AS FLOAT)",
+        "FLOAT NOT NULL", "NaN");
+    // -0E0 is converted to 0E0.  Is this a bug?
+    f.checkScalarApprox("CAST('-0E0' AS REAL)",
+        "REAL NOT NULL", "-0E0");
+    f.checkScalarApprox("CAST('-0E0' AS DOUBLE)",
+        "DOUBLE NOT NULL", "-0E0");
+    f.checkScalarApprox("CAST('-0E0' AS FLOAT)",
+        "FLOAT NOT NULL", "-0E0");
+    f.checkScalarApprox("CAST('0E0' AS REAL)",
+        "REAL NOT NULL", "0E0");
+    f.checkScalarApprox("CAST('0E0' AS DOUBLE)",
+        "DOUBLE NOT NULL", "0E0");
+    f.checkScalarApprox("CAST('0E0' AS FLOAT)",
+        "FLOAT NOT NULL", "0E0");
+  }
+
   @Test void testBetween() {
     final SqlOperatorFixture f = fixture();
     f.setFor(SqlStdOperatorTable.BETWEEN, VmName.EXPAND);
