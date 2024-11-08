@@ -1019,7 +1019,7 @@ public class RexImpTable {
       defineMethod(ARRAY_EXCEPT, BuiltInMethod.ARRAY_EXCEPT.method, NullPolicy.ANY);
       defineMethod(ARRAY_JOIN, BuiltInMethod.ARRAY_TO_STRING.method,
           NullPolicy.STRICT);
-      defineMethod(ARRAY_INSERT, BuiltInMethod.ARRAY_INSERT.method, NullPolicy.NONE);
+      defineMethod(ARRAY_INSERT, BuiltInMethod.ARRAY_INSERT.method, NullPolicy.ARG0);
       defineMethod(ARRAY_INTERSECT, BuiltInMethod.ARRAY_INTERSECT.method, NullPolicy.ANY);
       defineMethod(ARRAY_LENGTH, BuiltInMethod.COLLECTION_SIZE.method, NullPolicy.STRICT);
       defineMethod(ARRAY_MAX, BuiltInMethod.ARRAY_MAX.method, NullPolicy.STRICT);
@@ -1048,12 +1048,12 @@ public class RexImpTable {
       define(ARRAY_CONCAT, new ArrayConcatImplementor());
       define(SORT_ARRAY, new SortArrayImplementor());
       final MethodImplementor isEmptyImplementor =
-          new MethodImplementor(BuiltInMethod.IS_EMPTY.method, NullPolicy.NONE,
+          new MethodImplementor(BuiltInMethod.IS_EMPTY.method, NullPolicy.STRICT,
               false);
       define(IS_EMPTY, isEmptyImplementor);
       define(IS_NOT_EMPTY, NotImplementor.of(isEmptyImplementor));
       final MethodImplementor isASetImplementor =
-          new MethodImplementor(BuiltInMethod.IS_A_SET.method, NullPolicy.NONE,
+          new MethodImplementor(BuiltInMethod.IS_A_SET.method, NullPolicy.STRICT,
               false);
       define(IS_A_SET, isASetImplementor);
       define(IS_NOT_A_SET, NotImplementor.of(isASetImplementor));
