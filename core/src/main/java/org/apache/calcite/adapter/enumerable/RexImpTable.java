@@ -712,7 +712,7 @@ public class RexImpTable {
       defineMethod(CONCAT_FUNCTION, BuiltInMethod.MULTI_STRING_CONCAT.method,
           NullPolicy.STRICT);
       defineMethod(CONCAT_FUNCTION_WITH_NULL,
-          BuiltInMethod.MULTI_STRING_CONCAT_WITH_NULL.method, NullPolicy.NONE);
+          BuiltInMethod.MULTI_STRING_CONCAT_WITH_NULL.method, NullPolicy.STRICT);
       defineMethod(CONCAT2, BuiltInMethod.STRING_CONCAT_WITH_NULL.method,
           NullPolicy.ALL);
       defineMethod(CONCAT_WS,
@@ -723,7 +723,7 @@ public class RexImpTable {
           NullPolicy.ARG0);
       defineMethod(CONCAT_WS_MSSQL,
           BuiltInMethod.MULTI_STRING_CONCAT_WITH_SEPARATOR.method,
-          NullPolicy.NONE);
+          NullPolicy.STRICT);
       defineMethod(CONCAT_WS_SPARK,
           BuiltInMethod.MULTI_TYPE_STRING_ARRAY_CONCAT_WITH_SEPARATOR.method,
           NullPolicy.ARG0);
@@ -1008,7 +1008,7 @@ public class RexImpTable {
       // Multisets & arrays
       defineMethod(CARDINALITY, BuiltInMethod.COLLECTION_SIZE.method,
           NullPolicy.STRICT);
-      defineMethod(SLICE, BuiltInMethod.SLICE.method, NullPolicy.NONE);
+      defineMethod(SLICE, BuiltInMethod.SLICE.method, NullPolicy.STRICT);
       defineMethod(ELEMENT, BuiltInMethod.ELEMENT.method, NullPolicy.STRICT);
       defineMethod(STRUCT_ACCESS, BuiltInMethod.STRUCT_ACCESS.method, NullPolicy.ANY);
       defineMethod(MEMBER_OF, BuiltInMethod.MEMBER_OF.method, NullPolicy.NONE);
@@ -1058,17 +1058,17 @@ public class RexImpTable {
       define(IS_A_SET, isASetImplementor);
       define(IS_NOT_A_SET, NotImplementor.of(isASetImplementor));
       defineMethod(MULTISET_INTERSECT_DISTINCT,
-          BuiltInMethod.MULTISET_INTERSECT_DISTINCT.method, NullPolicy.NONE);
+          BuiltInMethod.MULTISET_INTERSECT_DISTINCT.method, NullPolicy.STRICT);
       defineMethod(MULTISET_INTERSECT,
-          BuiltInMethod.MULTISET_INTERSECT_ALL.method, NullPolicy.NONE);
+          BuiltInMethod.MULTISET_INTERSECT_ALL.method, NullPolicy.STRICT);
       defineMethod(MULTISET_EXCEPT_DISTINCT,
-          BuiltInMethod.MULTISET_EXCEPT_DISTINCT.method, NullPolicy.NONE);
-      defineMethod(MULTISET_EXCEPT, BuiltInMethod.MULTISET_EXCEPT_ALL.method, NullPolicy.NONE);
+          BuiltInMethod.MULTISET_EXCEPT_DISTINCT.method, NullPolicy.STRICT);
+      defineMethod(MULTISET_EXCEPT, BuiltInMethod.MULTISET_EXCEPT_ALL.method, NullPolicy.STRICT);
       defineMethod(MULTISET_UNION_DISTINCT,
-          BuiltInMethod.MULTISET_UNION_DISTINCT.method, NullPolicy.NONE);
-      defineMethod(MULTISET_UNION, BuiltInMethod.MULTISET_UNION_ALL.method, NullPolicy.NONE);
+          BuiltInMethod.MULTISET_UNION_DISTINCT.method, NullPolicy.STRICT);
+      defineMethod(MULTISET_UNION, BuiltInMethod.MULTISET_UNION_ALL.method, NullPolicy.STRICT);
       final MethodImplementor subMultisetImplementor =
-          new MethodImplementor(BuiltInMethod.SUBMULTISET_OF.method, NullPolicy.NONE, false);
+          new MethodImplementor(BuiltInMethod.SUBMULTISET_OF.method, NullPolicy.STRICT, false);
       define(SUBMULTISET_OF, subMultisetImplementor);
       define(NOT_SUBMULTISET_OF, NotImplementor.of(subMultisetImplementor));
 
@@ -1084,8 +1084,8 @@ public class RexImpTable {
       final RexCallImplementor value = new ValueConstructorImplementor();
       define(MAP_VALUE_CONSTRUCTOR, value);
       define(ARRAY_VALUE_CONSTRUCTOR, value);
-      defineMethod(ARRAY, BuiltInMethod.ARRAYS_AS_LIST.method, NullPolicy.NONE);
-      defineMethod(MAP, BuiltInMethod.MAP.method, NullPolicy.NONE);
+      defineMethod(ARRAY, BuiltInMethod.ARRAYS_AS_LIST.method, NullPolicy.STRICT);
+      defineMethod(MAP, BuiltInMethod.MAP.method, NullPolicy.STRICT);
 
       // ITEM operator
       define(ITEM, new ItemImplementor());
