@@ -86,7 +86,21 @@ SELECT UUID '123e4567-e89b-12d3-a456-426655440000' = '123e4567-e89b-12d3-a456-42
 
 !ok
 
-# Compare varchar to number
+SELECT CAST(NULL AS UUID);
++--------+
+| EXPR$0 |
++--------+
+|        |
++--------+
+(1 row)
+
+!ok
+
+SELECT UUID NULL;
+java.sql.SQLException: Error while executing SQL "SELECT UUID NULL": parse failed: Incorrect syntax near the keyword 'UUID' at line 1, column 8.
+!error
+
+# Compare varchar to number (uses an implicit cast from VARCHAR to INTEGER)
 SELECT '1' > 0 AS C;
 +------+
 | C    |
