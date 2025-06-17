@@ -126,6 +126,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
+import org.apache.commons.lang.StringUtils;
+
 import org.apiguardian.api.API;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.KeyFor;
@@ -134,6 +136,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.checkerframework.dataflow.qual.Pure;
+import org.locationtech.jts.util.StringUtil;
 import org.slf4j.Logger;
 
 import java.math.BigDecimal;
@@ -7242,7 +7245,7 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
         return false;
       }
       String message = ex.getMessage();
-      if (message != null && !message.contains("not found")) {
+      if (!StringUtils.contains(message, "not found")) {
         return false;
       }
       return true;
@@ -7254,7 +7257,7 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
         return false;
       }
       String message = ex.getMessage();
-      if (message != null && !message.contains("is ambiguous")) {
+      if (!StringUtils.contains(message, "is ambiguous")) {
         return false;
       }
       return true;
@@ -7583,9 +7586,10 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
       }
 
       final SelectScope selectScope = validator.getRawSelectScopeNonNull(select);
+      final boolean replaceAliases = clause.shouldReplaceAliases(validator.config);
       try {
         // First try a standard expansion
-        if (clause == Clause.GROUP_BY || clause == Clause.HAVING) {
+        if (clause == Clause.GROUP_BY) {
           SqlNode node = expandCommonColumn(select, id, selectScope, validator);
           if (node != id) {
             return node;
@@ -7594,20 +7598,22 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
         }
       } catch (Exception ex) {
         // This behavior is from MySQL:
-        // - if there is no column in the SELECT with the name used in the GROUP BY or HAVING,
+        // - if there is no column in the SELECT with the name used in the GROUP BY
         //   then look for a column alias in the SELECT
-        // - if there are multiple columns in the SELECT with the name used in the GROUP BY or
-        //   HAVING, then also look for a column alias in the SELECT
+        // - if there are multiple columns in the SELECT with the name used in the GROUP BY,
+        //   then also look for a column alias in the SELECT
         if (!Expander.isNotFoundException(ex) && !Expander.isAmbiguousException(ex)) {
           throw ex;
         }
-        final boolean replaceAliases = clause.shouldReplaceAliases(validator.config);
         if (!replaceAliases) {
           throw ex;
         }
-        // Fall through and try to replace alias
+        // Continue execution, trying to replace alias
       }
 
+      if (clause == Clause.HAVING && !replaceAliases) {
+        return id;
+      }
       String name = id.getSimple();
       SqlNode expr = null;
       final SqlNameMatcher nameMatcher =
@@ -7637,8 +7643,10 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
 
       // expr cannot be null; in that case n = 0 would have returned
       requireNonNull(expr, "expr");
-      if (validator.getConformance().isSelectAlias()
-              != SqlConformance.SelectAliasLookup.UNSUPPORTED) {
+      if ((clause == Clause.SELECT
+          && (validator.getConformance().isSelectAlias()
+          != SqlConformance.SelectAliasLookup.UNSUPPORTED))
+          || clause == Clause.GROUP_BY) {
         Map<String, SqlNode> expansions = new HashMap<>();
         final Expander expander = new SelectExpander(validator, selectScope, select, expansions);
         expr = expander.go(expr);

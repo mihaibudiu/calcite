@@ -2742,6 +2742,51 @@ HAVING empno > 75;
 Expression 'EMPNO' is not being grouped
 !error
 
+# Validated on MySQL
+SELECT MAX(empno)
+FROM EMP
+GROUP BY deptno
+HAVING MAX(empno) % 2 = 0;
++--------+
+| EXPR$0 |
++--------+
+|   7900 |
+|   7902 |
+|   7934 |
++--------+
+(3 rows)
+
+!ok
+
+# Validated on MySQL
+SELECT MAX(empno) AS X
+FROM EMP
+GROUP BY deptno
+HAVING X % 2 = 0;
++------+
+| X    |
++------+
+| 7900 |
+| 7902 |
+| 7934 |
++------+
+(3 rows)
+
+!ok
+
+# Validated on MySQL
+SELECT MAX(empno) AS deptno
+FROM EMP
+HAVING deptno % 2 = 0;
++--------+
+| DEPTNO |
++--------+
+|   7934 |
++--------+
+(1 row)
+
+!ok
+
 # [CALCITE-6566] JDBC adapter should generate PI function with parentheses in most dialects
 
 !use scott-mysql

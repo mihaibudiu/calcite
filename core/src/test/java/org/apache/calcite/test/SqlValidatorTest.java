@@ -6835,7 +6835,7 @@ public class SqlValidatorTest extends SqlValidatorTestCase {
         .withConformance(lenient).ok();
     sql("select count(empno) as deptno from emp having ^deptno^ > 10")
         .withConformance(strict).fails("Expression 'DEPTNO' is not being grouped")
-        .withConformance(lenient).fails("Expression 'DEPTNO' is not being grouped");
+        .withConformance(lenient).ok();
     // Alias in aggregate is not allowed.
     sql("select empno as e from emp group by empno having max(^e^) > 10")
         .withConformance(strict).fails("Column 'E' not found in any table")
