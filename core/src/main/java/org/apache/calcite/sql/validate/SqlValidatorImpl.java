@@ -126,8 +126,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
-import org.apache.commons.lang.StringUtils;
-
 import org.apiguardian.api.API;
 import org.checkerframework.checker.initialization.qual.UnknownInitialization;
 import org.checkerframework.checker.nullness.qual.KeyFor;
@@ -136,7 +134,6 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import org.checkerframework.checker.nullness.qual.PolyNull;
 import org.checkerframework.checker.nullness.qual.RequiresNonNull;
 import org.checkerframework.dataflow.qual.Pure;
-import org.locationtech.jts.util.StringUtil;
 import org.slf4j.Logger;
 
 import java.math.BigDecimal;
@@ -7245,7 +7242,7 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
         return false;
       }
       String message = ex.getMessage();
-      if (!StringUtils.contains(message, "not found")) {
+      if (message == null || !message.contains("not found")) {
         return false;
       }
       return true;
@@ -7257,7 +7254,7 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
         return false;
       }
       String message = ex.getMessage();
-      if (!StringUtils.contains(message, "is ambiguous")) {
+      if (message == null || !message.contains("is ambiguous")) {
         return false;
       }
       return true;
@@ -7576,7 +7573,7 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
       this.root = root;
       this.clause = clause;
       if (clause == Clause.GROUP_BY) {
-        addExpandableExpressions();
+        addExpandableOrdinals();
       }
     }
 
@@ -7611,13 +7608,30 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
         // Continue execution, trying to replace alias
       }
 
-      if (clause == Clause.HAVING && !replaceAliases) {
-        return id;
+      final SqlNameMatcher nameMatcher =
+          validator.catalogReader.nameMatcher();
+
+      if (clause == Clause.HAVING) {
+        if (!replaceAliases) {
+          return id;
+        }
+
+        // Do not expand aliases in HAVING if they are being grouped on
+        SqlNodeList list = select.getGroup();
+        if (list != null) {
+          // HAVING can be used without GROUP BY
+          for (SqlNode node : list) {
+            if (node instanceof SqlIdentifier) {
+              SqlIdentifier grouped = (SqlIdentifier) node;
+              if (nameMatcher.matches(id.getSimple(), Util.last(grouped.names))) {
+                return id;
+              }
+            }
+          }
+        }
       }
       String name = id.getSimple();
       SqlNode expr = null;
-      final SqlNameMatcher nameMatcher =
-          validator.catalogReader.nameMatcher();
       int n = 0;
       for (SqlNode s : SqlNonNullableAccessors.getSelectList(select)) {
         final @Nullable String alias = SqlValidatorUtil.alias(s);
@@ -7692,11 +7706,10 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
     }
 
     /**
-     * Add all possible expandable 'group by' expression to set, which is
-     * used to check whether expr could be expanded as alias or ordinal.
+     * Add all possible expandable 'group by' ordinals to {@link aliasOrdinalExpandSet}.
      */
     @RequiresNonNull({"root"})
-    private void addExpandableExpressions(@UnknownInitialization ExtendedExpander this) {
+    private void addExpandableOrdinals(@UnknownInitialization ExtendedExpander this) {
       switch (root.getKind()) {
       case LITERAL:
         aliasOrdinalExpandSet.add(root);
@@ -7707,7 +7720,7 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
         if (root instanceof SqlBasicCall) {
           List<SqlNode> operandList = ((SqlBasicCall) root).getOperandList();
           for (SqlNode sqlNode : operandList) {
-            addIdentifierOrdinal2ExpandSet(sqlNode);
+            addOrdinal2ExpandSet(sqlNode);
           }
         }
         break;
@@ -7717,16 +7730,16 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
     }
 
     /**
-     * Identifier or literal in grouping sets, rollup, cube will be eligible for alias.
+     * Literal in grouping sets, rollup, cube will be expanded.
      *
      * @param sqlNode expression within grouping sets, rollup, cube
      */
-    private void addIdentifierOrdinal2ExpandSet(@UnknownInitialization ExtendedExpander this,
+    private void addOrdinal2ExpandSet(@UnknownInitialization ExtendedExpander this,
         SqlNode sqlNode) {
       if (sqlNode.getKind() == SqlKind.ROW) {
         List<SqlNode> rowOperandList = ((SqlCall) sqlNode).getOperandList();
         for (SqlNode node : rowOperandList) {
-          addIdentifierOrdinal2ExpandSet(node);
+          addOrdinal2ExpandSet(node);
         }
       } else if (sqlNode.getKind() == SqlKind.LITERAL) {
         aliasOrdinalExpandSet.add(sqlNode);
