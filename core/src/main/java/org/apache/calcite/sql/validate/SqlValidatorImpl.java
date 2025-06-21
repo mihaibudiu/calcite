@@ -7595,9 +7595,9 @@ public class SqlValidatorImpl implements SqlValidatorWithHints {
         }
       } catch (Exception ex) {
         // This behavior is from MySQL:
-        // - if there is no column in the SELECT with the name used in the GROUP BY
+        // - if there is no column in the FROM with the name used in the GROUP BY
         //   then look for a column alias in the SELECT
-        // - if there are multiple columns in the SELECT with the name used in the GROUP BY,
+        // - if there are multiple columns in the FROM with the name used in the GROUP BY,
         //   then also look for a column alias in the SELECT
         if (!Expander.isNotFoundException(ex) && !Expander.isAmbiguousException(ex)) {
           throw ex;
