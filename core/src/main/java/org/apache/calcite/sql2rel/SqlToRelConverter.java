@@ -161,6 +161,7 @@ import org.apache.calcite.sql.util.SqlVisitor;
 import org.apache.calcite.sql.validate.AggregatingSelectScope;
 import org.apache.calcite.sql.validate.CollectNamespace;
 import org.apache.calcite.sql.validate.DelegatingScope;
+import org.apache.calcite.sql.validate.JoinScope;
 import org.apache.calcite.sql.validate.ListScope;
 import org.apache.calcite.sql.validate.MatchRecognizeScope;
 import org.apache.calcite.sql.validate.MeasureScope;
@@ -3505,6 +3506,22 @@ public class SqlToRelConverter {
     return node;
   }
 
+  /** Returns the number of fields before a namespace in the FROM list of a
+   * scope, or 0 if the namespace is not in the list. */
+  private static int fieldOffset(SqlValidatorScope scope,
+      SqlValidatorNamespace namespace) {
+    int offset = 0;
+    if (scope instanceof ListScope) {
+      for (SqlValidatorNamespace child : ((ListScope) scope).getChildren()) {
+        if (child == namespace) {
+          return offset;
+        }
+        offset += child.getRowType().getFieldCount();
+      }
+    }
+    return 0;
+  }
+
   private @Nullable CorrelationUse getCorrelationUse(Blackboard bb, final RelNode r0) {
     final Set<CorrelationId> correlatedVariables =
         RelOptUtil.getVariablesUsed(r0);
@@ -3513,8 +3530,13 @@ public class SqlToRelConverter {
     }
     final ImmutableBitSet.Builder requiredColumns = ImmutableBitSet.builder();
     final List<CorrelationId> correlNames = new ArrayList<>();
-    // Mapping from (correlId, originalFieldIndex) to projectedFieldIndex for aggregation
+    // Mapping from (correlId, originalFieldIndex) to the new field index: the
+    // projected index for aggregation, or the index relative to the join inputs
     final Map<Pair<CorrelationId, Integer>, Integer> fieldMapping = new HashMap<>();
+    // Offset in the FROM list of the first input of the join that defines the
+    // variable, and the row type of the variable, which spans the FROM list
+    int offset = 0;
+    @Nullable RelDataType correlRowType = null;
 
     for (CorrelationId correlName : correlatedVariables) {
       DeferredLookup lookup =
@@ -3538,6 +3560,18 @@ public class SqlToRelConverter {
 
       if (!correlInCurrentScope) {
         continue;
+      }
+
+      if (bb.scope instanceof JoinScope) {
+        // The variable belongs to the join whose inputs contain the item it
+        // references. These inputs need not start the FROM list, as
+        // "b CROSS JOIN LATERAL (... b.x ...)" in "FROM a, b CROSS JOIN ...".
+        final List<SqlValidatorNamespace> joinChildren =
+            ((JoinScope) bb.scope).getChildren();
+        if (joinChildren.stream().noneMatch(ns -> ns == resolve.namespace)) {
+          continue;
+        }
+        offset = fieldOffset(ancestorScope, joinChildren.get(0));
       }
 
       int namespaceOffset = 0;
@@ -3585,10 +3619,11 @@ public class SqlToRelConverter {
           throw new AssertionError("Identifier '" + lookup.originalRelName
               + "." + originalFieldName + "' is not a group expr");
         }
-      }
+      } // end for correlName
 
-      requiredColumns.set(pos);
+      requiredColumns.set(pos - offset);
       correlNames.add(correlName);
+      correlRowType = topLevelFieldAccess.getReferenceExpr().getType();
     }
 
     if (correlNames.isEmpty()) {
@@ -3607,13 +3642,28 @@ public class SqlToRelConverter {
       leaves.put(r, r.getRowType().getFieldCount());
     }
 
-    // If there are field mappings (due to aggregation), rewrite the RelNode tree
-    // to update correlation variable row type and field indices
+    // A join scope never has an aggregate root
+    assert fieldMapping.isEmpty() || offset == 0
+        : "aggregate root in a join scope";
+    @Nullable RelDataType newCorrelRowType = null;
     if (!fieldMapping.isEmpty()) {
+      newCorrelRowType = bb.root().getRowType();
+    } else if (offset > 0) {
+      final List<RelDataTypeField> fields =
+          requireNonNull(correlRowType, "correlRowType").getFieldList();
+      for (int i = offset; i < fields.size(); i++) {
+        fieldMapping.put(Pair.of(correlNames.get(0), i), i - offset);
+      }
+      newCorrelRowType =
+          typeFactory.createStructType(fields.subList(offset, fields.size()));
+    }
+    if (newCorrelRowType != null) {
+      // Rewrite the RelNode tree to update the row type and field indices of
+      // the correlation variable
       r =
           r.accept(
               new CorrelationFieldMappingShuttle(rexBuilder, correlNames.get(0),
-                  bb.root().getRowType(), fieldMapping));
+                  newCorrelRowType, fieldMapping));
     }
 
     return new CorrelationUse(correlNames.get(0), requiredColumns.build(), r);
@@ -6630,6 +6680,13 @@ public class SqlToRelConverter {
             }
           }
           return super.visitFieldAccess(fieldAccess);
+        }
+
+        @Override public RexNode visitSubQuery(RexSubQuery subQuery) {
+          final RelNode r =
+              subQuery.rel.accept(CorrelationFieldMappingShuttle.this);
+          return super.visitSubQuery(
+              r == subQuery.rel ? subQuery : subQuery.clone(r));
         }
       });
     }
